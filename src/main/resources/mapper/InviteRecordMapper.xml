@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dong.yuanmianai.mapper.InviteRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.dong.yuanmianai.model.entity.InviteRecord">
+            <id property="id" column="id" jdbcType="BIGINT"/>
+            <result property="inviteUserId" column="inviteUserId" jdbcType="BIGINT"/>
+            <result property="invitedUserId" column="invitedUserId" jdbcType="BIGINT"/>
+            <result property="rewardStatus" column="rewardStatus" jdbcType="TINYINT"/>
+            <result property="rewardType" column="rewardType" jdbcType="VARCHAR"/>
+            <result property="rewardValue" column="rewardValue" jdbcType="INTEGER"/>
+            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,inviteUserId,invitedUserId,
+        rewardStatus,rewardType,rewardValue,
+        createTime
+    </sql>
+</mapper>
