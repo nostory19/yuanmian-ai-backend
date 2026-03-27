@@ -1,12 +1,11 @@
 package com.dong.yuanmianai.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.dong.yuanmianai.annotation.AuthCheck;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.dong.yuanmianai.common.BaseResponse;
 import com.dong.yuanmianai.common.DeleteRequest;
 import com.dong.yuanmianai.common.ErrorCode;
 import com.dong.yuanmianai.common.ResultUtils;
-import com.dong.yuanmianai.constant.UserConstant;
 import com.dong.yuanmianai.exception.BusinessException;
 import com.dong.yuanmianai.exception.ThrowUtils;
 import com.dong.yuanmianai.model.dto.vipOrder.VipOrderAddRequest;
@@ -101,7 +100,7 @@ public class VipOrderController {
      * @return
      */
     @PostMapping("/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("vip-order:manage")
     public BaseResponse<Boolean> updateVipOrder(@RequestBody VipOrderUpdateRequest vipOrderUpdateRequest) {
         if (vipOrderUpdateRequest == null || vipOrderUpdateRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -143,7 +142,7 @@ public class VipOrderController {
      * @return
      */
     @PostMapping("/list/page")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("vip-order:manage")
     public BaseResponse<Page<VipOrder>> listVipOrderByPage(@RequestBody VipOrderQueryRequest vipOrderQueryRequest) {
         long current = vipOrderQueryRequest.getCurrent();
         long size = vipOrderQueryRequest.getPageSize();

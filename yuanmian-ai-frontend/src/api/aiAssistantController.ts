@@ -1,4 +1,5 @@
 import request from '@/request'
+import { getAccessToken } from '@/utils/auth'
 
 export async function chat(body: API.AiAssistantChatRequest, options?: { [key: string]: any }) {
   return request<API.BaseResponseAiAssistantChatVO>('/ai_assistant/chat', {
@@ -19,12 +20,13 @@ export async function chatStream(
   onMessage: (chunk: string) => void,
   options?: { signal?: AbortSignal }
 ) {
+  const accessToken = getAccessToken()
   const response = await fetch('http://localhost:8101/api/ai_assistant/chat-stream', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
-    credentials: 'include',
     body: JSON.stringify(body),
     signal: options?.signal,
   })

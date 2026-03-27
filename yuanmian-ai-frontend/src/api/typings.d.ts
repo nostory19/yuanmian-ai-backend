@@ -84,6 +84,13 @@ declare namespace API {
     userRole?: string
     createTime?: string
     updateTime?: string
+    accessToken?: string
+    refreshToken?: string
+    expiresIn?: number
+  }
+
+  type RefreshTokenRequest = {
+    refreshToken?: string
   }
 
   type pageParams = {

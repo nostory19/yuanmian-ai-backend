@@ -109,3 +109,13 @@ agent:
   base-url: http://localhost:8291
   connect-timeout-ms: 3000
   read-timeout-ms: 120000
+
+# sa-token 配置
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 1800
+  active-timeout: -1
+  is-read-header: true
+  is-read-cookie: false
+  is-log: true

@@ -3,6 +3,7 @@ package com.dong.yuanmianai.exception;
 import com.dong.yuanmianai.common.BaseResponse;
 import com.dong.yuanmianai.common.ErrorCode;
 import com.dong.yuanmianai.common.ResultUtils;
+import cn.dev33.satoken.exception.NotLoginException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -27,5 +28,11 @@ public class GlobalExceptionHandler {
     public BaseResponse<?> runtimeExceptionHandler(RuntimeException e) {
         log.error("RuntimeException", e);
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "系统错误");
+    }
+
+    @ExceptionHandler(NotLoginException.class)
+    public BaseResponse<?> notLoginExceptionHandler(NotLoginException e) {
+        log.warn("NotLoginException: {}", e.getMessage());
+        return ResultUtils.error(ErrorCode.NOT_LOGIN_ERROR, "未登录或登录已过期");
     }
 }

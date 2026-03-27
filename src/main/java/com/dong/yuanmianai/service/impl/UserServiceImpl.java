@@ -1,19 +1,23 @@
 package com.dong.yuanmianai.service.impl;
 
-import static com.dong.yuanmianai.constant.UserConstant.USER_LOGIN_STATE;
-
 import cn.hutool.core.collection.CollUtil;
+import cn.dev33.satoken.SaManager;
+import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.dong.yuanmianai.common.ErrorCode;
 import com.dong.yuanmianai.constant.CommonConstant;
 import com.dong.yuanmianai.exception.BusinessException;
 import com.dong.yuanmianai.mapper.UserMapper;
+import com.dong.yuanmianai.mapper.UserRoleMapper;
+import com.dong.yuanmianai.mapper.RefreshTokenMapper;
 import com.dong.yuanmianai.model.dto.user.UserQueryRequest;
 import com.dong.yuanmianai.model.entity.User;
 import com.dong.yuanmianai.model.enums.UserRoleEnum;
 import com.dong.yuanmianai.model.vo.LoginUserVO;
 import com.dong.yuanmianai.model.vo.UserVO;
+import com.dong.yuanmianai.model.entity.UserRole;
+import com.dong.yuanmianai.model.entity.RefreshToken;
 import com.dong.yuanmianai.service.UserService;
 import com.dong.yuanmianai.utils.SqlUtils;
 import java.util.ArrayList;
@@ -25,7 +29,11 @@ import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
+
+import java.util.UUID;
+import java.util.Date;
 
 /**
  * 用户服务实现
@@ -41,6 +49,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * 盐值，混淆密码
      */
     public static final String SALT = "dong";
+    private static final String REFRESH_TOKEN_PREFIX = "auth:refresh:";
+    private static final int REFRESH_TOKEN_TIMEOUT_SECONDS = 60 * 60 * 24 * 7;
+
+    @jakarta.annotation.Resource
+    private UserRoleMapper userRoleMapper;
+
+    @jakarta.annotation.Resource
+    private RefreshTokenMapper refreshTokenMapper;
 
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
@@ -76,6 +92,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             if (!saveResult) {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
             }
+            UserRole userRole = new UserRole();
+            userRole.setUserId(user.getId());
+            userRole.setRoleCode("USER");
+            userRoleMapper.insert(userRole);
             return user.getId();
         }
     }
@@ -104,9 +124,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             log.info("user login failed, userAccount cannot match userPassword");
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
-        // 3. 记录用户的登录态
-        request.getSession().setAttribute(USER_LOGIN_STATE, user);
-        return this.getLoginUserVO(user);
+        return buildLoginResponse(user);
     }
 
     @Override
@@ -135,10 +153,34 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     throw new BusinessException(ErrorCode.SYSTEM_ERROR, "登录失败");
                 }
             }
-            // 记录用户的登录态
-            request.getSession().setAttribute(USER_LOGIN_STATE, user);
-            return getLoginUserVO(user);
+            return buildLoginResponse(user);
         }
+    }
+
+    @Override
+    public LoginUserVO refreshLoginToken(String refreshToken) {
+        if (StringUtils.isBlank(refreshToken)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "refreshToken 不能为空");
+        }
+        Object loginIdObj = SaManager.getSaTokenDao().get(REFRESH_TOKEN_PREFIX + refreshToken);
+        if (loginIdObj == null) {
+            RefreshToken dbToken = refreshTokenMapper.selectOne(new QueryWrapper<RefreshToken>()
+                    .eq("refresh_token", refreshToken)
+                    .gt("expire_at", new Date())
+                    .last("limit 1"));
+            if (dbToken != null) {
+                loginIdObj = dbToken.getUserId();
+            }
+        }
+        if (loginIdObj == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR, "refreshToken 已失效");
+        }
+        long userId = Long.parseLong(String.valueOf(loginIdObj));
+        User user = this.getById(userId);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR, "用户不存在");
+        }
+        return buildLoginResponse(user);
     }
 
     /**
@@ -149,15 +191,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public User getLoginUser(HttpServletRequest request) {
-        // 先判断是否已登录
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
-        User currentUser = (User) userObj;
-        if (currentUser == null || currentUser.getId() == null) {
+        if (!StpUtil.isLogin()) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
-        // 从数据库查询（追求性能的话可以注释，直接走缓存）
-        long userId = currentUser.getId();
-        currentUser = this.getById(userId);
+        long userId = StpUtil.getLoginIdAsLong();
+        User currentUser = this.getById(userId);
         if (currentUser == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
@@ -172,14 +210,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public User getLoginUserPermitNull(HttpServletRequest request) {
-        // 先判断是否已登录
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
-        User currentUser = (User) userObj;
-        if (currentUser == null || currentUser.getId() == null) {
+        if (!StpUtil.isLogin()) {
             return null;
         }
-        // 从数据库查询（追求性能的话可以注释，直接走缓存）
-        long userId = currentUser.getId();
+        long userId = StpUtil.getLoginIdAsLong();
         return this.getById(userId);
     }
 
@@ -191,15 +225,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public boolean isAdmin(HttpServletRequest request) {
-        // 仅管理员可查询
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
-        User user = (User) userObj;
+        User user = getLoginUserPermitNull(request);
         return isAdmin(user);
     }
 
     @Override
     public boolean isAdmin(User user) {
-        return user != null && UserRoleEnum.ADMIN.getValue().equals(user.getUserRole());
+        if (user == null || user.getId() == null) {
+            return false;
+        }
+        Long count = userRoleMapper.selectCount(new QueryWrapper<UserRole>()
+                .eq("user_id", user.getId())
+                .eq("role_code", "ROOT"));
+        return count != null && count > 0;
     }
 
     /**
@@ -209,11 +247,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public boolean userLogout(HttpServletRequest request) {
-        if (request.getSession().getAttribute(USER_LOGIN_STATE) == null) {
+        if (!StpUtil.isLogin()) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "未登录");
         }
-        // 移除登录态
-        request.getSession().removeAttribute(USER_LOGIN_STATE);
+        StpUtil.logout();
+        // 清理该用户的 refresh token（简化策略：按用户 id 前缀全清）
+        // 这里用随机 token 方案，无法枚举删除，依赖过期自动失效。
+        // 如需严格回收，可落库持久化并按用户维度管理。
         return true;
     }
 
@@ -225,6 +265,33 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         LoginUserVO loginUserVO = new LoginUserVO();
         BeanUtils.copyProperties(user, loginUserVO);
         return loginUserVO;
+    }
+
+    private LoginUserVO buildLoginResponse(User user) {
+        StpUtil.login(user.getId());
+        String accessToken = StpUtil.getTokenValue();
+        String refreshToken = UUID.randomUUID().toString().replace("-", "");
+        SaManager.getSaTokenDao().set(
+                REFRESH_TOKEN_PREFIX + refreshToken,
+                String.valueOf(user.getId()),
+                REFRESH_TOKEN_TIMEOUT_SECONDS
+        );
+        refreshTokenMapper.insert(buildRefreshToken(user.getId(), refreshToken));
+        LoginUserVO loginUserVO = getLoginUserVO(user);
+        loginUserVO.setAccessToken(accessToken);
+        loginUserVO.setRefreshToken(refreshToken);
+        long timeout = StpUtil.getTokenTimeout();
+        loginUserVO.setExpiresIn(timeout > 0 ? timeout : 0L);
+        return loginUserVO;
+    }
+
+    private RefreshToken buildRefreshToken(Long userId, String token) {
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setUserId(userId);
+        refreshToken.setRefreshToken(token);
+        refreshToken.setExpireAt(new Date(System.currentTimeMillis() + REFRESH_TOKEN_TIMEOUT_SECONDS * 1000L));
+        refreshToken.setCreatedTime(new Date());
+        return refreshToken;
     }
 
     @Override
@@ -268,5 +335,53 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
                 sortField);
         return queryWrapper;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void disableUser(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户 id 非法");
+        }
+        User dbUser = this.getById(userId);
+        if (dbUser == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+        }
+        User updateUser = new User();
+        updateUser.setId(userId);
+        updateUser.setUserRole(UserRoleEnum.BAN.getValue());
+        boolean updated = this.updateById(updateUser);
+        if (!updated) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "禁用用户失败");
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void setUserAsRoot(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户 id 非法");
+        }
+        User dbUser = this.getById(userId);
+        if (dbUser == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+        }
+        UserRole rootRole = userRoleMapper.selectOne(new QueryWrapper<UserRole>()
+                .eq("user_id", userId)
+                .eq("role_code", "ROOT")
+                .last("limit 1"));
+        if (rootRole == null) {
+            UserRole userRole = new UserRole();
+            userRole.setUserId(userId);
+            userRole.setRoleCode("ROOT");
+            userRoleMapper.insert(userRole);
+        }
+        User updateUser = new User();
+        updateUser.setId(userId);
+        updateUser.setUserRole(UserRoleEnum.ADMIN.getValue());
+        boolean updated = this.updateById(updateUser);
+        if (!updated) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "设置 ROOT 失败");
+        }
     }
 }

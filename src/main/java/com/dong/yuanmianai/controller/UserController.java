@@ -1,21 +1,23 @@
 package com.dong.yuanmianai.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.dong.yuanmianai.annotation.AuthCheck;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.dong.yuanmianai.common.BaseResponse;
 import com.dong.yuanmianai.common.DeleteRequest;
 import com.dong.yuanmianai.common.ErrorCode;
 import com.dong.yuanmianai.common.ResultUtils;
 import com.dong.yuanmianai.config.WxOpenConfig;
-import com.dong.yuanmianai.constant.UserConstant;
 import com.dong.yuanmianai.exception.BusinessException;
 import com.dong.yuanmianai.exception.ThrowUtils;
 import com.dong.yuanmianai.model.dto.user.UserAddRequest;
+import com.dong.yuanmianai.model.dto.user.DisableUserRequest;
 import com.dong.yuanmianai.model.dto.user.UserLoginRequest;
 import com.dong.yuanmianai.model.dto.user.UserQueryRequest;
+import com.dong.yuanmianai.model.dto.user.RefreshTokenRequest;
 import com.dong.yuanmianai.model.dto.user.UserRegisterRequest;
 import com.dong.yuanmianai.model.dto.user.UserUpdateMyRequest;
 import com.dong.yuanmianai.model.dto.user.UserUpdateRequest;
+import com.dong.yuanmianai.model.dto.user.SetRootUserRequest;
 import com.dong.yuanmianai.model.entity.User;
 import com.dong.yuanmianai.model.vo.LoginUserVO;
 import com.dong.yuanmianai.model.vo.UserVO;
@@ -39,6 +41,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
 
 import static com.dong.yuanmianai.service.impl.UserServiceImpl.SALT;
 
@@ -108,6 +111,18 @@ public class UserController {
     }
 
     /**
+     * 刷新 token
+     */
+    @PostMapping("/refresh")
+    public BaseResponse<LoginUserVO> refreshToken(@RequestBody RefreshTokenRequest refreshTokenRequest) {
+        if (refreshTokenRequest == null || StringUtils.isBlank(refreshTokenRequest.getRefreshToken())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        LoginUserVO loginUserVO = userService.refreshLoginToken(refreshTokenRequest.getRefreshToken());
+        return ResultUtils.success(loginUserVO);
+    }
+
+    /**
      * 用户登录（微信开放平台）
      */
     @GetMapping("/login/wx_open")
@@ -169,7 +184,7 @@ public class UserController {
      * @return
      */
     @PostMapping("/add")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("user:manage")
     public BaseResponse<Long> addUser(@RequestBody UserAddRequest userAddRequest, HttpServletRequest request) {
         if (userAddRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -193,7 +208,7 @@ public class UserController {
      * @return
      */
     @PostMapping("/delete")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("user:manage")
     public BaseResponse<Boolean> deleteUser(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -210,7 +225,7 @@ public class UserController {
      * @return
      */
     @PostMapping("/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("user:manage")
     public BaseResponse<Boolean> updateUser(@RequestBody UserUpdateRequest userUpdateRequest,
             HttpServletRequest request) {
         if (userUpdateRequest == null || userUpdateRequest.getId() == null) {
@@ -231,7 +246,7 @@ public class UserController {
      * @return
      */
     @GetMapping("/get")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("user:manage")
     public BaseResponse<User> getUserById(long id, HttpServletRequest request) {
         if (id <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -263,7 +278,7 @@ public class UserController {
      * @return
      */
     @PostMapping("/list/page")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("user:manage")
     public BaseResponse<Page<User>> listUserByPage(@RequestBody UserQueryRequest userQueryRequest,
             HttpServletRequest request) {
         long current = userQueryRequest.getCurrent();
@@ -320,5 +335,25 @@ public class UserController {
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 禁用用户（将 userRole 置为 ban）
+     */
+    @SaCheckPermission("user:disable")
+    @PostMapping("/disable")
+    public BaseResponse<Void> disable(@Valid @RequestBody DisableUserRequest request) {
+        userService.disableUser(request.getUserId());
+        return ResultUtils.success(null);
+    }
+
+    /**
+     * 设为 ROOT（授予 ROOT 角色）
+     */
+    @SaCheckPermission("user:set-root")
+    @PostMapping("/set_root")
+    public BaseResponse<Void> setRoot(@Valid @RequestBody SetRootUserRequest request) {
+        userService.setUserAsRoot(request.getUserId());
+        return ResultUtils.success(null);
     }
 }

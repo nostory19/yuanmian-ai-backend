@@ -58,5 +58,20 @@ public class LoginUserVO implements Serializable {
      */
     private Date vipExpireTime;
 
+    /**
+     * 访问令牌
+     */
+    private String accessToken;
+
+    /**
+     * 刷新令牌
+     */
+    private String refreshToken;
+
+    /**
+     * accessToken 过期秒数
+     */
+    private Long expiresIn;
+
     private static final long serialVersionUID = 1L;
 }

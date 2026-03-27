@@ -1,7 +1,7 @@
 <template>
   <div id="userLoginPage">
-    <h2 class="title">AI 应用生成 - 用户登录</h2>
-    <div class="desc">不写一行代码，生成完整应用</div>
+    <h2 class="title">远面 - 用户登录</h2>
+    <div class="desc">AI面试刷题</div>
     <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">
       <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
         <a-input v-model:value="formState.userAccount" placeholder="请输入账号" />
@@ -33,6 +33,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { userLogin } from '@/api/userController.ts'
 import { message } from 'ant-design-vue'
+import { setTokens } from '@/utils/auth'
 
 const formState = reactive<API.UserLoginRequest>({
   userAccount: '',
@@ -47,6 +48,7 @@ const handleSubmit = async (values :any) => {
   const res = await userLogin(values)
   // 登录成功，保存登录态
   if (res.data.code === 0 && res.data.data) {
+    setTokens(res.data.data.accessToken, res.data.data.refreshToken)
     await loginUserStore.fetchLoginUser()
     message.success('登录成功')
     router.push({

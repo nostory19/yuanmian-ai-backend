@@ -212,3 +212,118 @@ create table if not exists user_profile
     skillVector json                               null comment '技能向量',
     updatedTime datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间'
 ) comment '用户能力画像表' collate = utf8mb4_unicode_ci;
+
+-- AI 助手会话表
+create table if not exists ai_assistant_sessions
+(
+    id           bigint auto_increment primary key,
+    session_id   varchar(64)                        not null comment '会话ID',
+    user_id      bigint                             not null comment '用户ID',
+    user_name    varchar(64)                        not null comment '用户名',
+    created_time datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    modify_time  datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    title        varchar(255)                       not null comment '标题',
+    daily_routes varchar(512)                       null,
+    unique key uk_session_id (session_id),
+    key idx_ai_session_user_id (user_id)
+) comment 'AI 助手会话表' collate = utf8mb4_unicode_ci;
+
+-- AI 助手消息表
+create table if not exists ai_assistant_chat_messages
+(
+    msg_id      varchar(64)                        not null comment '消息ID' primary key,
+    session_id  varchar(64)                        not null comment '会话ID',
+    user_id     bigint                             not null comment '用户ID',
+    user_name   varchar(64)                        not null comment '用户名',
+    role        varchar(32)                        not null comment '角色(user/assistant)',
+    content     text                               not null comment '对话内容',
+    title       varchar(255)                       null comment '标题',
+    create_time datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    modify_time datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    key idx_ai_msg_session_id (session_id),
+    key idx_ai_msg_user_id (user_id)
+) comment 'AI 助手消息表' collate = utf8mb4_unicode_ci;
+
+-- 角色表
+create table if not exists role
+(
+    id        bigint auto_increment primary key,
+    role_code varchar(64) not null,
+    role_name varchar(64) not null,
+    unique key uk_role_code (role_code)
+) comment '角色表' collate = utf8mb4_unicode_ci;
+
+-- 用户角色关联
+create table if not exists user_role
+(
+    id        bigint auto_increment primary key,
+    user_id   bigint      not null,
+    role_code varchar(64) not null,
+    key idx_user_role_user_id (user_id),
+    key idx_user_role_role_code (role_code)
+) comment '用户角色关联表' collate = utf8mb4_unicode_ci;
+
+-- 刷新令牌表
+create table if not exists refresh_token
+(
+    id            bigint auto_increment primary key,
+    user_id       bigint                             not null,
+    refresh_token varchar(255)                       not null,
+    expire_at     datetime                           not null,
+    created_time  datetime default CURRENT_TIMESTAMP not null,
+    unique key uk_refresh_token (refresh_token),
+    key idx_refresh_user_id (user_id)
+) comment '刷新令牌表' collate = utf8mb4_unicode_ci;
+
+-- 权限表
+create table if not exists permission
+(
+    id        bigint auto_increment primary key,
+    perm_code varchar(128) not null comment '权限编码，如 ai:chat:read',
+    perm_name varchar(128) not null,
+    unique key uk_perm_code (perm_code)
+) comment '权限表' collate = utf8mb4_unicode_ci;
+
+-- 角色-权限关联表
+create table if not exists role_permission
+(
+    id        bigint auto_increment primary key,
+    role_code varchar(64)  not null,
+    perm_code varchar(128) not null,
+    key idx_rp_role (role_code),
+    key idx_rp_perm (perm_code)
+) comment '角色权限关联表' collate = utf8mb4_unicode_ci;
+
+-- 角色初始化
+insert into role (role_code, role_name)
+values ('USER', '普通用户'),
+       ('ROOT', '超级管理员')
+on duplicate key update role_name = values(role_name);
+
+-- 权限初始化
+insert into permission (perm_code, perm_name)
+values ('ai:session', '会话列表'),
+       ('ai:history', '会话历史'),
+       ('ai:chat', '聊天发送与流式'),
+       ('question:manage', '题目管理'),
+       ('question-bank:manage', '题库管理'),
+       ('question-bank-question:manage', '题库题目管理'),
+       ('invite-record:manage', '邀请记录管理'),
+       ('vip-order:manage', '会员订单管理'),
+       ('user:manage', '用户管理'),
+       ('user:disable', '禁用用户'),
+       ('user:set-root', '设为ROOT')
+on duplicate key update perm_name = values(perm_name);
+
+-- USER 角色权限
+insert into role_permission (role_code, perm_code)
+values ('USER', 'ai:session'),
+       ('USER', 'ai:history'),
+       ('USER', 'ai:chat')
+on duplicate key update perm_code = values(perm_code);
+
+-- ROOT 角色权限（授予全部）
+insert into role_permission (role_code, perm_code)
+select 'ROOT', p.perm_code
+from permission p
+on duplicate key update perm_code = values(perm_code);

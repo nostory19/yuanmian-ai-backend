@@ -1,7 +1,7 @@
 <template>
   <div id="userRegisterPage">
-    <h2 class="title">AI 应用生成 - 用户注册</h2>
-    <div class="desc">不写一行代码，生成完整应用</div>
+    <h2 class="title">远面 - 用户注册</h2>
+    <div class="desc">AI面试刷题</div>
     <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">
       <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
         <a-input v-model:value="formState.userAccount" placeholder="请输入账号" />
@@ -74,7 +74,7 @@ const handleSubmit = async (values: API.UserRegisterRequest) => {
   if (res.data.code === 0) {
     message.success('注册成功')
     // 将密码保存到sessionStorage
-    sessionStorage.setItem('tempPassword', values.userPassword)
+    sessionStorage.setItem('tempPassword', values.userPassword ?? '')
     router.push({
       path: '/user/login',
       query: {

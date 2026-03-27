@@ -1,13 +1,12 @@
 package com.dong.yuanmianai.controller;
 
 import cn.hutool.json.JSONUtil;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.dong.yuanmianai.annotation.AuthCheck;
 import com.dong.yuanmianai.common.BaseResponse;
 import com.dong.yuanmianai.common.DeleteRequest;
 import com.dong.yuanmianai.common.ErrorCode;
 import com.dong.yuanmianai.common.ResultUtils;
-import com.dong.yuanmianai.constant.UserConstant;
 import com.dong.yuanmianai.exception.BusinessException;
 import com.dong.yuanmianai.exception.ThrowUtils;
 import com.dong.yuanmianai.model.dto.question.QuestionAddRequest;
@@ -113,7 +112,7 @@ public class QuestionController {
      * @return
      */
     @PostMapping("/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("question:manage")
     public BaseResponse<Boolean> updateQuestion(@RequestBody QuestionUpdateRequest questionUpdateRequest) {
         if (questionUpdateRequest == null || questionUpdateRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -162,7 +161,7 @@ public class QuestionController {
      * @return
      */
     @PostMapping("/list/page")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("question:manage")
     public BaseResponse<Page<Question>> listQuestionByPage(@RequestBody QuestionQueryRequest questionQueryRequest) {
        ThrowUtils.throwIf(questionQueryRequest == null, ErrorCode.PARAMS_ERROR);
        Page<Question> questionPage = questionService.listQuestionByPage(questionQueryRequest);

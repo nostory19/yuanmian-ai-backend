@@ -117,10 +117,12 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 
 import { LogoutOutlined } from '@ant-design/icons-vue'
 import { userLogout } from '@/api/userController.ts'
+import { clearTokens } from '@/utils/auth'
 
 // 用户注销
 const doLogout = async () => {
   const res = await userLogout()
+  clearTokens()
   if (res.data.code === 0) {
     loginUserStore.setLoginUser({
       userName: '未登录',

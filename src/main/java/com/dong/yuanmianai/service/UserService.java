@@ -49,6 +49,14 @@ public interface UserService extends IService<User> {
     LoginUserVO userLoginByMpOpen(WxOAuth2UserInfo wxOAuth2UserInfo, HttpServletRequest request);
 
     /**
+     * 刷新 accessToken
+     *
+     * @param refreshToken refresh token
+     * @return 新的登录用户视图
+     */
+    LoginUserVO refreshLoginToken(String refreshToken);
+
+    /**
      * 获取当前登录用户
      *
      * @param request
@@ -118,5 +126,19 @@ public interface UserService extends IService<User> {
      * @return
      */
     QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest);
+
+    /**
+     * 禁用用户
+     *
+     * @param userId 用户 id
+     */
+    void disableUser(Long userId);
+
+    /**
+     * 将用户设为 ROOT
+     *
+     * @param userId 用户 id
+     */
+    void setUserAsRoot(Long userId);
 
 }

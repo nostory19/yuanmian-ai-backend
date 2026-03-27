@@ -3,12 +3,11 @@ package com.dong.yuanmianai.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.dong.yuanmianai.annotation.AuthCheck;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.dong.yuanmianai.common.BaseResponse;
 import com.dong.yuanmianai.common.DeleteRequest;
 import com.dong.yuanmianai.common.ErrorCode;
 import com.dong.yuanmianai.common.ResultUtils;
-import com.dong.yuanmianai.constant.UserConstant;
 import com.dong.yuanmianai.exception.BusinessException;
 import com.dong.yuanmianai.exception.ThrowUtils;
 import com.dong.yuanmianai.model.dto.questionBankQuestion.QuestionBankQuestionAddRequest;
@@ -53,7 +52,7 @@ public class QuestionBankQuestionController {
      * @return
      */
     @PostMapping("/add")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("question-bank-question:manage")
     public BaseResponse<Long> addQuestionBankQuestion(@RequestBody QuestionBankQuestionAddRequest questionBankQuestionAddRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(questionBankQuestionAddRequest == null, ErrorCode.PARAMS_ERROR);
         // todo 在此处将实体类和 DTO 进行转换
@@ -106,7 +105,7 @@ public class QuestionBankQuestionController {
      * @return
      */
     @PostMapping("/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("question-bank-question:manage")
     public BaseResponse<Boolean> updateQuestionBankQuestion(@RequestBody QuestionBankQuestionUpdateRequest questionBankQuestionUpdateRequest) {
         if (questionBankQuestionUpdateRequest == null || questionBankQuestionUpdateRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -149,7 +148,7 @@ public class QuestionBankQuestionController {
      * @return
      */
     @PostMapping("/list/page")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("question-bank-question:manage")
     public BaseResponse<Page<QuestionBankQuestion>> listQuestionBankQuestionByPage(@RequestBody QuestionBankQuestionQueryRequest questionBankQuestionQueryRequest) {
         long current = questionBankQuestionQueryRequest.getCurrent();
         long size = questionBankQuestionQueryRequest.getPageSize();
@@ -206,7 +205,7 @@ public class QuestionBankQuestionController {
     }
 
     @PostMapping("/remove")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @SaCheckPermission("question-bank-question:manage")
     public BaseResponse<Boolean> removeQuestionBankQuestion (@RequestBody QuestionBankQuestionRemoveRequest questionBankQuestionRemoveRequest) {
         // 判断存在还是不存在
         ThrowUtils.throwIf(questionBankQuestionRemoveRequest == null, ErrorCode.PARAMS_ERROR);
