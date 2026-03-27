@@ -13,7 +13,7 @@ import java.util.List;
  * ${dataName}视图
  *
  * @author <a href="">程序员远行</a>
- * @from <a href="https://www.code-nav.cn">编程导航学习圈</a>
+ * @from <a href="">公众号：所谓远行Misnearch</a>
  */
 @Data
 public class ${upperDataKey}VO implements Serializable {

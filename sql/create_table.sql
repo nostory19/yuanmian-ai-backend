@@ -159,3 +159,56 @@ create table if not exists question_bank_question
     updateTime     datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
     UNIQUE (questionBankId, questionId)
     ) comment '题库题目' collate = utf8mb4_unicode_ci;
+
+
+ALTER TABLE user
+    MODIFY COLUMN userRole varchar(256) DEFAULT 'user' NOT NULL COMMENT '用户角色：user/admin/ban';
+
+-- 面试会话表
+create table if not exists interview_session
+(
+    id         bigint auto_increment primary key comment '会话id',
+    userId     bigint                             not null comment '用户id',
+    jobRole    varchar(128)                       not null comment '面试岗位',
+    difficulty varchar(32)                        not null default 'medium' comment '难度',
+    status     varchar(32)                        not null default 'ACTIVE' comment '状态',
+    startTime  datetime                           null comment '开始时间',
+    endTime    datetime                           null comment '结束时间',
+    index idx_userId (userId),
+    index idx_status (status)
+) comment '面试会话表' collate = utf8mb4_unicode_ci;
+
+-- 面试消息表
+create table if not exists interview_message
+(
+    id         bigint auto_increment primary key comment '消息id',
+    sessionId  bigint                             not null comment '会话id',
+    role       varchar(32)                        not null comment 'user/agent',
+    content    text                               not null comment '消息内容',
+    agentType  varchar(64)                        null comment 'interviewer/evaluator/follow_up',
+    createTime datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    index idx_sessionId (sessionId),
+    index idx_role (role)
+) comment '面试消息表' collate = utf8mb4_unicode_ci;
+
+-- 评估结果表
+create table if not exists evaluation_result
+(
+    id         bigint auto_increment primary key comment '评估id',
+    sessionId  bigint                             not null comment '会话id',
+    questionId bigint                             null comment '题目id',
+    score      int                                not null comment '总分',
+    feedback   text                               null comment '反馈',
+    dimension  json                               null comment '多维评分',
+    createTime datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    index idx_sessionId (sessionId),
+    index idx_questionId (questionId)
+) comment '评估结果表' collate = utf8mb4_unicode_ci;
+
+-- 用户能力画像表
+create table if not exists user_profile
+(
+    userId      bigint primary key comment '用户id',
+    skillVector json                               null comment '技能向量',
+    updatedTime datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间'
+) comment '用户能力画像表' collate = utf8mb4_unicode_ci;
