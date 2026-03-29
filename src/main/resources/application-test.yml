@@ -11,14 +11,18 @@ spring:
     url: jdbc:mysql://localhost:3306/yuanmian_db
     username: root
     password: 12345
-  # Redis 配置
-  # todo 需替换配置
-  redis:
-    database: 1
-    host: localhost
-    port: 6379
-    timeout: 5000
-    password: 123456
+  data:
+    redis:
+      database: 1
+      host: localhost
+      port: 6379
+      timeout: 10s
+      password: 123456
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
   # Elasticsearch 配置
   # todo 需替换配置
   elasticsearch:
