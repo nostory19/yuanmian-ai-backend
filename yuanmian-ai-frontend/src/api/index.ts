@@ -5,8 +5,10 @@
 import * as userController from './userController'
 import * as healthController from './healthController'
 import * as aiAssistantController from './aiAssistantController'
+import * as floatingAssistantController from './floatingAssistantController'
 export default {
   userController,
   healthController,
   aiAssistantController,
+  floatingAssistantController,
 }

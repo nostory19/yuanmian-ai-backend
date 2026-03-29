@@ -18,4 +18,14 @@ public interface AgentProxyService {
      * 代理 Agent 非流式对话
      */
     AiAssistantChatVO proxyChat(AiAssistantChatRequest request);
+
+    /**
+     * 悬浮助手：直连 LLM（/assistant），与面试 LangGraph（/agent）隔离
+     */
+    Flux<String> proxyFloatingAssistantStream(AiAssistantChatRequest request);
+
+    /**
+     * 悬浮助手非流式
+     */
+    AiAssistantChatVO proxyFloatingAssistantChat(AiAssistantChatRequest request);
 }

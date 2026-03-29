@@ -8,6 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.http.MediaType;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -22,28 +23,54 @@ import java.util.UUID;
 @Service
 public class AgentProxyServiceImpl implements AgentProxyService {
 
+    /**
+     * 必须按 SSE 帧解码；{@code bodyToFlux(String.class)} 往往会整包缓冲后再发出，前端会一直转圈直到结束。
+     */
+    private static final ParameterizedTypeReference<ServerSentEvent<String>> SSE_STRING =
+            new ParameterizedTypeReference<>() {
+            };
+
     @Resource(name = "agentWebClient")
     private WebClient agentWebClient;
 
     @Override
     public Flux<String> proxyChatStream(AiAssistantChatRequest request) {
+        return proxySseChatStream("/agent/chat-stream", request);
+    }
+
+    @Override
+    public Flux<String> proxyFloatingAssistantStream(AiAssistantChatRequest request) {
+        return proxySseChatStream("/assistant/chat-stream", request);
+    }
+
+    private Flux<String> proxySseChatStream(String uri, AiAssistantChatRequest request) {
         fillDefault(request);
         Map<String, Object> agentRequest = toAgentRequest(request);
         return agentWebClient.post()
-                .uri("/agent/chat-stream")
+                .uri(uri)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .bodyValue(agentRequest)
                 .retrieve()
-                .bodyToFlux(String.class);
+                .bodyToFlux(SSE_STRING)
+                .mapNotNull(ServerSentEvent::data);
     }
 
     @Override
     public AiAssistantChatVO proxyChat(AiAssistantChatRequest request) {
+        return proxyJsonChat("/agent/chat", request);
+    }
+
+    @Override
+    public AiAssistantChatVO proxyFloatingAssistantChat(AiAssistantChatRequest request) {
+        return proxyJsonChat("/assistant/chat", request);
+    }
+
+    private AiAssistantChatVO proxyJsonChat(String uri, AiAssistantChatRequest request) {
         fillDefault(request);
         Map<String, Object> agentRequest = toAgentRequest(request);
         Map<String, Object> resp = agentWebClient.post()
-                .uri("/agent/chat")
+                .uri(uri)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .bodyValue(agentRequest)
@@ -70,6 +97,35 @@ public class AgentProxyServiceImpl implements AgentProxyService {
         Object source = resp.get("source");
         if (source != null) {
             vo.setSource(String.valueOf(source));
+        }
+        Object nextAction = resp.get("next_action");
+        if (nextAction != null) {
+            vo.setNextAction(String.valueOf(nextAction));
+        }
+        Object score = resp.get("score");
+        if (score instanceof Number number) {
+            vo.setScore(number.intValue());
+        }
+        Object question = resp.get("question");
+        if (question != null) {
+            vo.setQuestion(String.valueOf(question));
+        }
+        Object weakness = resp.get("weakness");
+        if (weakness != null) {
+            vo.setWeakness(String.valueOf(weakness));
+        }
+        Object followUpQuestion = resp.get("follow_up_question");
+        if (followUpQuestion != null) {
+            vo.setFollowUpQuestion(String.valueOf(followUpQuestion));
+        }
+        Object report = resp.get("report");
+        if (report != null) {
+            vo.setReport(String.valueOf(report));
+        }
+        Object agentTrace = resp.get("agent_trace");
+        if (agentTrace instanceof java.util.List<?> list) {
+            java.util.List<String> traces = list.stream().map(String::valueOf).toList();
+            vo.setAgentTrace(traces);
         }
         if (StringUtils.isBlank(vo.getSessionId())) {
             vo.setSessionId(request.getSessionId());

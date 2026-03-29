@@ -18,7 +18,9 @@ import com.dong.yuanmianai.service.AgentProxyService;
 import com.dong.yuanmianai.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -47,12 +49,13 @@ public class AiAssistantController {
     private AiAssistantConversationService conversationService;
 
     /**
-     * 流式对话（SSE）
+     * 流式对话（SSE）：{@code Flux<ServerSentEvent<String>>}，与常见 Flux 写 SSE 的方式一致。
+     * 拉取 Agent 须按 SSE 帧解码（见 {@link com.dong.yuanmianai.service.impl.AgentProxyServiceImpl}），勿对上游使用 {@code bodyToFlux(String.class)}，否则易整包缓冲。
      */
     @PostMapping(value = "/chat-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @SaCheckPermission("ai:chat")
-    public Flux<ServerSentEvent<String>> chatStream(@RequestBody AiAssistantChatRequest chatRequest,
-                                                    HttpServletRequest request) {
+    public ResponseEntity<Flux<ServerSentEvent<String>>> chatStream(@RequestBody AiAssistantChatRequest chatRequest,
+                                                                    HttpServletRequest request) {
         ThrowUtils.throwIf(chatRequest == null, ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
         chatRequest.setUserId(String.valueOf(loginUser.getId()));
@@ -62,18 +65,28 @@ public class AiAssistantController {
         String sid = conversationService.ensureSession(chatRequest.getSessionId(), loginUser, chatRequest.getMessage());
         chatRequest.setSessionId(sid);
         conversationService.saveUserMessage(sid, loginUser, chatRequest.getMessage());
+
         List<String> assistantParts = new ArrayList<>();
-        return agentProxyService.proxyChatStream(chatRequest)
+        final String metaPrefix = "__AGENT_META__";
+        Flux<ServerSentEvent<String>> flux = agentProxyService.proxyChatStream(chatRequest)
                 .doOnNext(data -> {
-                    if (data != null && !data.contains("[DONE]")) {
+                    if (data != null && !data.contains("[DONE]")
+                            && !data.startsWith(metaPrefix)) {
                         assistantParts.add(data);
                     }
                 })
-                .doOnComplete(() -> conversationService.saveAssistantMessage(sid, loginUser, String.join("\n", assistantParts)))
+                .doOnComplete(() -> conversationService.saveAssistantMessage(sid, loginUser, String.join("", assistantParts)))
                 .map(data -> ServerSentEvent.<String>builder().data(data).build())
                 .onErrorResume(e -> Flux.just(
                         ServerSentEvent.<String>builder().event("error").data("Agent 请求失败: " + e.getMessage()).build()
                 ));
+        // 避免缓存/代理把 SSE 攒成一整包；Chrome「Preview」仍可能结束时才刷新，要以 Timing/EventStream 为准
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .cacheControl(CacheControl.noStore())
+                .header("X-Accel-Buffering", "no")
+                .header("Connection", "keep-alive")
+                .body(flux);
     }
 
     /**

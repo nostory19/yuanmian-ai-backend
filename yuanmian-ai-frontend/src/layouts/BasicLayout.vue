@@ -10,12 +10,15 @@
 
     <!-- 底部版权信息 -->
     <GlobalFooter />
+
+    <FloatingAssistantWidget />
   </a-layout>
 </template>
 
 <script setup lang="ts">
 import GlobalHeader from '@/components/GlobalHeader.vue'
 import GlobalFooter from '@/components/GlobalFooter.vue'
+import FloatingAssistantWidget from '@/components/FloatingAssistantWidget.vue'
 </script>
 
 <style scoped>

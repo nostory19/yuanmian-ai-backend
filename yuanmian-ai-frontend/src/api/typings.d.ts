@@ -9,6 +9,13 @@ declare namespace API {
     sessionId?: string
     answer?: string
     source?: string
+    nextAction?: string
+    score?: number
+    question?: string
+    weakness?: string
+    followUpQuestion?: string
+    report?: string
+    agentTrace?: string[]
   }
 
   type BaseResponseAiAssistantChatVO = {

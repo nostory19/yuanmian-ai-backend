@@ -23,8 +23,10 @@ export async function chatStream(
   const accessToken = getAccessToken()
   const response = await fetch('http://localhost:8101/api/ai_assistant/chat-stream', {
     method: 'POST',
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
     body: JSON.stringify(body),
@@ -46,7 +48,10 @@ export async function chatStream(
     buffer = lines.pop() ?? ''
     for (const line of lines) {
       if (line.startsWith('data:')) {
-        onMessage(line.slice(5).trim())
+        const payload = line.slice(5).trim()
+        if (payload !== '') {
+          onMessage(payload)
+        }
       }
     }
   }
